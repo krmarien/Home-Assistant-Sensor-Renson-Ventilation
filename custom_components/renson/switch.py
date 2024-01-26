@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from renson_endura_delta.field_enum import CURRENT_LEVEL_FIELD, BREEZE_LEVEL_FIELD, DataType
+from renson_endura_delta.field_enum import CURRENT_LEVEL_FIELD, BREEZE_LEVEL_FIELD, BREEZE_TEMPERATURE_FIELD, DataType
 from renson_endura_delta.renson import Level, RensonVentilation
 
 from homeassistant.config_entries import ConfigEntry
@@ -47,18 +47,26 @@ class RensonBreezeSwitch(RensonEntity, SwitchEntity):
         """Turn on the switch."""
         _LOGGER.debug("Enable Breeze")
 
+        level = self.api.parse_value(
+            self.api.get_field_value(self.coordinator.data, CURRENT_LEVEL_FIELD.name),
+            DataType.LEVEL,
+        )
+        breeze_temp = self.api.get_field_value(self.coordinator.data, BREEZE_TEMPERATURE_FIELD)
+
         await self.hass.async_add_executor_job(self.api.set_manual_level, Level.BREEZE)
+        await self.hass.async_add_executor_job(self.api.set_breeze, level, breeze_temp, True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the switch."""
         _LOGGER.debug("Disable Breeze")
 
-        breeze_level = self.api.parse_value(
-            self.api.get_field_value(self.coordinator.data, BREEZE_LEVEL_FIELD.name),
-            DataType.LEVEL,
-        )
+        if self.is_on:
+            breeze_level = self.api.parse_value(
+                self.api.get_field_value(self.coordinator.data, BREEZE_LEVEL_FIELD.name),
+                DataType.LEVEL,
+            )
 
-        await self.hass.async_add_executor_job(self.api.set_manual_level, Level[breeze_level.upper()])
+            await self.hass.async_add_executor_job(self.api.set_manual_level, Level[breeze_level.upper()])
 
     @callback
     def _handle_coordinator_update(self) -> None:
